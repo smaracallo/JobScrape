@@ -1,12 +1,7 @@
-from bs4 import BeautifulSoup
+import requests
+import re
 
-from selenium import webdriver
-import chromedriver_binary #Adds chromedriver binary to path
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
+from bs4 import BeautifulSoup
 
 
 class IndeedScrape:
@@ -15,37 +10,48 @@ class IndeedScrape:
         pass
 
     def run(self):
-        chrome_options = Options()
-        chrome_options.add_experimental_option("detach", True)  # keeps browser open
-        url = "https://www.indeed.com/"
-        driver = webdriver.Chrome(options=chrome_options)
-        driver.get(url)
 
-        # Enter search credential and click search button
-        job_title = driver.find_element_by_id('text-input-what')
-        location = driver.find_element_by_id('text-input-where')
+        job_search = "software engineer"
+        location = "New York, NY"
+        url = f"https://www.indeed.com/jobs?q={job_search}&l={location}&jt=fulltime&explvl=mid_level&taxo1=8GQeqOBVSO2eVhu55t0BMg"
 
-        location.clear()
+        response = requests.get(url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        # cards = soup.find_all('a', 'result')
 
-        job_title.send_keys("Software Engineer")
-        location.send_keys("")
+        records = []
 
-        search_jobs = driver.find_element_by_class_name("icl-WhatWhere-button")
-        search_jobs.click()
+        while True:
+            try:
+                url = f"https://www.indeed.com{soup.find('a', {'aria-label': 'Next'}).get('href')}"
+            except AttributeError:
+                break
 
-        # sort by date
-        driver.find_element_by_link_text('date').click()
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            cards = soup.find_all('a', 'result')
 
-        # close pop-up if displayed
-        # WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "popover-foreground")))
-        driver.implicitly_wait(10)
-        pop_up = driver.find_element_by_id('popover-foreground')
+            for card in cards:
+                record = self.get_job_record(card)
+                records.append(record)
 
-        if pop_up.is_displayed():
-            driver.find_element(By.XPATH, '//button[@aria-label="Close"]').click()
+        print(len(records))
 
-        all_jobs = driver.find_elements_by_class_name("result")
-        print(all_jobs)
+    def get_job_record(self, card):
+        job_title = card.h2.span.get('title')
+        url = f"https://indeed.com{card.get('href')}"
+        company = card.find('span', 'companyName').text
+        all_location = card.find('div', 'companyLocation').text
+        location = ''.join(re.findall('([a-zA-Z ]*)\d*,*', all_location)[:2])
+        job_snippet = card.find('div', 'job-snippet').text.strip()
+        date_posted = card.find('span', 'date').text
+
+        try:
+            salary = card.find('span', 'salary-snippet').text
+        except AttributeError:
+            salary = ""
+
+        return job_title, url, company, location, job_snippet, date_posted, salary
 
 
 IndeedScrape().run()
