@@ -1,7 +1,10 @@
 import requests
 import re
+import csv
+import datetime
 
 from bs4 import BeautifulSoup
+from job_ids import ids
 
 
 class IndeedScrape:
@@ -32,10 +35,21 @@ class IndeedScrape:
             cards = soup.find_all('a', 'result')
 
             for card in cards:
+                job_id = card.get('id')
+
+                if job_id in ids:
+                    continue
+
+                ids.append(job_id)
                 record = self.get_job_record(card)
                 records.append(record)
 
-        print(len(records))
+        with open('jobs.csv', 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['JobTitle', 'URL', 'Company', 'Location', 'Description', 'Date', 'Salary', 'DateScraped'])
+            writer.writerows(records)
+
+        print(ids)
 
     def get_job_record(self, card):
         job_title = card.h2.span.get('title')
@@ -45,13 +59,14 @@ class IndeedScrape:
         location = ''.join(re.findall('([a-zA-Z ]*)\d*,*', all_location)[:2])
         job_snippet = card.find('div', 'job-snippet').text.strip()
         date_posted = card.find('span', 'date').text
+        date_scraped = datetime.datetime.now()
 
         try:
             salary = card.find('span', 'salary-snippet').text
         except AttributeError:
-            salary = ""
+            salary = "Unknown"
 
-        return job_title, url, company, location, job_snippet, date_posted, salary
+        return job_title, url, company, location, job_snippet, date_posted, salary, date_scraped
 
 
 IndeedScrape().run()
