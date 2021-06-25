@@ -1,7 +1,7 @@
 import requests
 import re
 import csv
-import datetime
+from datetime import datetime
 import json
 import smtplib
 from email.mime.text import MIMEText
@@ -62,19 +62,19 @@ class IndeedScrape:
                 writer.writerow(['JobTitle', 'URL', 'Company', 'Location', 'Description', 'Date', 'Salary', 'DateScraped'])
                 writer.writerows(records)
 
+            # setup display format for emailed jobs
             emailed_jobs = []
             for job_title, url, company, location, job_snippet, date_posted, salary, date_scraped in records:
-                date_scraped = date_scraped.strftime('%m/%d/%Y')
                 job_details = f"Job Title: {job_title} \nCompany: {company}\nLocation: {location}\n" \
                               f"Salary: {salary if salary else 'unknown'}\n" \
-                              f"Date Posted: {f'{date_posted} from {date_scraped}'}\n" \
+                              f"Date Posted: {f'{date_posted}'}\n" \
                               f"Job Snippet: {job_snippet}\nURL: {url}\n\n"
                 emailed_jobs.append(job_details)
 
             # send email of new stored jobs
             sender = 'sender email here'
             receivers = ["receiver email here"]
-            email_body = "".join(emailed_jobs)
+            email_body = f"New Jobs found on {datetime.today().strftime('%m/%d/%Y')}\n\n{''.join(emailed_jobs)}"
 
             msg = MIMEText(email_body)
             msg['Subject'] = 'Daily Indeed Job Alerts'
@@ -87,15 +87,15 @@ class IndeedScrape:
             s.quit()
 
     def get_job_record(self, card):
-        job_title = card.h2.span.get('title')
+        job_title = card.h2.span.get('title') or card.h2.find_all('span')[1].get('title')
         url = f"https://indeed.com{card.get('href')}"
         company = card.find('span', 'companyName').text
         all_location = card.find('div', 'companyLocation').text
-        location = ''.join(re.findall('([a-zA-Z ]*)\d*,*', all_location)[:2])
+        location = ', '.join(re.findall('([a-zA-Z ]*)\d*,*', all_location)[:2])
         job_snippet = card.find('div', 'job-snippet').text.strip()
         date_posted = card.find('span', 'date').text
-        date_scraped = datetime.datetime.now()
-
+        date_scraped = datetime.today()
+        
         try:
             salary = card.find('span', 'salary-snippet').text
         except AttributeError:
