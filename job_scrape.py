@@ -3,10 +3,12 @@ import re
 import csv
 from datetime import datetime
 import json
-import smtplib
-from email.mime.text import MIMEText
+import time
 
 from bs4 import BeautifulSoup
+import smtplib
+import schedule
+from email.mime.text import MIMEText
 
 
 class IndeedScrape:
@@ -16,7 +18,7 @@ class IndeedScrape:
 
     def run(self):
 
-        job_search = "software engineer"
+        job_search = "python engineer"
         location = "New York, NY"
         url = f"https://www.indeed.com/jobs?q={job_search}&l={location}&jt=fulltime&explvl=mid_level&taxo1=8GQeqOBVSO2eVhu55t0BMg"
 
@@ -37,7 +39,7 @@ class IndeedScrape:
             soup = BeautifulSoup(response.text, 'html.parser')
             jobs = soup.find_all('a', 'result')
 
-            # store only new job ids
+            # store only new job ids found
             with open('data.json', 'r+') as f:
                 data = json.load(f)
                 saved_job_ids = data['ids']
@@ -64,16 +66,16 @@ class IndeedScrape:
 
             # setup display format for emailed jobs
             emailed_jobs = []
-            for job_title, url, company, location, job_snippet, date_posted, salary, date_scraped in records:
+            for job_title, url, company, location, job_snippet, date_posted, salary, date_today in records:
                 job_details = f"Job Title: {job_title} \nCompany: {company}\nLocation: {location}\n" \
                               f"Salary: {salary if salary else 'unknown'}\n" \
                               f"Date Posted: {f'{date_posted}'}\n" \
                               f"Job Snippet: {job_snippet}\nURL: {url}\n\n"
                 emailed_jobs.append(job_details)
 
-            # send email of new stored jobs
-            sender = 'sender email here'
-            receivers = ["receiver email here"]
+            # send formatted email of new stored jobs
+            sender = 'email@gmail.com'
+            receivers = ["email@gmail.com"]
             email_body = f"New Jobs found on {datetime.today().strftime('%m/%d/%Y')}\n\n{''.join(emailed_jobs)}"
 
             msg = MIMEText(email_body)
@@ -82,7 +84,7 @@ class IndeedScrape:
             msg['To'] = ','.join(receivers)
 
             s = smtplib.SMTP_SSL(host='smtp.gmail.com', port=465)
-            s.login(user=sender, password='sender passsword')
+            s.login(user=sender, password=eamil_password')
             s.sendmail(sender, receivers, msg.as_string())
             s.quit()
 
@@ -94,14 +96,18 @@ class IndeedScrape:
         location = ', '.join(re.findall('([a-zA-Z ]*)\d*,*', all_location)[:2])
         job_snippet = card.find('div', 'job-snippet').text.strip()
         date_posted = card.find('span', 'date').text
-        date_scraped = datetime.today()
-        
+        today = datetime.today()
         try:
             salary = card.find('span', 'salary-snippet').text
         except AttributeError:
             salary = "Unknown"
 
-        return job_title, url, company, location, job_snippet, date_posted, salary, date_scraped
+        return job_title, url, company, location, job_snippet, date_posted, salary, today
 
 
-IndeedScrape().run()
+# Schedule program execution time
+schedule.every().day.at("23:15").do(IndeedScrape().run)
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
