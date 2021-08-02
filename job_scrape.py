@@ -76,7 +76,7 @@ class IndeedScrape:
             # send formatted email of new stored jobs
             sender = 'email@gmail.com'
             receivers = ["email@gmail.com"]
-            email_body = f"New Jobs found on {datetime.today().strftime('%m/%d/%Y')}\n\n{''.join(emailed_jobs)}"
+            email_body = f"{len(emailed_jobs)} New Jobs found for '{job_search}' on {datetime.today().strftime('%m/%d/%Y')}\n\n{''.join(emailed_jobs)}"
 
             msg = MIMEText(email_body)
             msg['Subject'] = 'Daily Indeed Job Alerts'
